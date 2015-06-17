@@ -1,0 +1,8 @@
+Package: rpsftm
+Title: Rank Preserving Structural Failure Time Model
+Version: 0.0.0.9000
+Authors@R: person("Linh", "Tran", , "tranlm@berkeley.edu", role = c("aut", "cre"))
+Description: This package simulates real world clinical data under specified statistical models and tests the rpsftm approach.
+Depends: R (>= 3.2.0)
+License: GPL-3
+LazyData: true
