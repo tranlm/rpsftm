@@ -7,7 +7,11 @@
 
 
 checkWeights = function(weights, T, id) {
-	if(is.null(weights)) return(rep(1, length(unique(id))))
+	if(is.null(weights)) {
+		weights = rep(1, length(unique(id)))
+		names(weights) = unique(id)
+		return(weights)
+	}
 	if(any(is.na(weights))) stop("Weight vector cannot have NA values.")
 	## IF LONGER LENGTH ##
 	if(length(weights)==length(T)) {

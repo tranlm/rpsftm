@@ -81,28 +81,22 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 		C_psi = pmin(data[,"C"], exp(psi[i])*data[,"C"])
 		X_psi = pmin(U_psi, C_psi)
 		Y_psi = ifelse(data[,"Y"]==1, 1*I(X_psi==U_psi), 0)
-		# nb. Connie defines X_psi (for persons not failing) as
-		# X_psi = ifelse(data[,"Y"]==1, pmin(U_psi, C_psi), min(T, T*si, C_psi))
-		#nb. Korhonen et al (2013) define X_psi as
-		# X_psi = ifelse(data[,"Y"]==1, pmin(U_psi, C_psi), C_psi)
-		# Robins and Tsiatis (1991) define X_psi as
-		# X_psi = pmin(U_psi, C_psi)
 		
 		# Survival
 		survObject = Surv(X_psi, Y_psi)
 		
 		# Log-rank
-		kmFit = survdiff(survObject ~ data[,"R"] + strata(strata))
+		kmFit = survdiff(survObject ~ data[,"R"] + strata(data[,"strata"]))
 		
 		# Wilcoxon
-		wilcoxonFit = survdiff(survObject ~ data[,"R"] + strata(strata), rho=1)
+		wilcoxonFit = survdiff(survObject ~ data[,"R"] + strata(data[,"strata"]), rho=1)
 		
 		# Cox prop hazards
-		coxFit = coxph(survObject ~ data[,"R"] + strata(strata), weights=weights)
+		coxFit = coxph(survObject ~ data[,"R"] + strata(data[,"strata"]), weights=weights)
 		coxScore = resid(coxFit, type="score")
 		controlScore = ifelse(data[,"R"]==0, coxScore, NA)
 
-		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.z = summary(coxFit)$coef[,"z"], controlScore = mean(controlScore, na.rm=TRUE))
+		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.pvalue = summary(coxFit)$coef[,"Pr(>|z|)"])
 		output = list(statistics=statistics, U_psi=U_psi, C_psi=C_psi, X_psi=X_psi, Y_psi=Y_psi)
 		return(output)
 	})
@@ -150,33 +144,3 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 	
 }
 
-
-
-
-
-rpsftm.new = function(T, A, psi=NULL) {
-	
-	## INITIALIZES ##
-	if(is.null(psi)) psi = seq(-3,3,.001)
-	
-	## ESTIMATES STATISTIC FROM PSI ##
-	statistics = do.call("rbind", lapply(1:length(psi), function(i) {
-			# Counterfactual time
-			U_off = (A==0)*T + (A==1)*exp(psi[i])*T
-			U_on = (A==0)*exp(-psi[i])*T + (A==1)*T
-			U = ifelse(A==1, U_off, U_on)
-			UT = c(U,T); counter = c(rep(1,length(U)), rep(0,length(U)))
-			survObject = Surv(UT, rep(TRUE, length(UT)))
-			# Log-rank
-			kmFit = survdiff(survObject ~ counter)
-			# Wilcoxon
-			wilcoxonFit = survdiff(survObject ~ counter, rho=1)		
-			# Cox prop hazards
-			coxFit = coxph(survObject ~ counter)
-			
-			return(c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]]))
-		}))
-
-	return(data.frame(statistics))
-	
-}

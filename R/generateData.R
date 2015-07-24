@@ -50,13 +50,15 @@ generateData = function(n, lambda, time, p=0.5, alpha, txEffect="accel", c=0, cr
 	for(i in 1:length(time)) {
 		var.names = c(var.names, paste(c("L","A","C","Y"), i, sep="."))
 	}
-	LT = matrix(nrow=n, ncol=length(var.names)+1, dimnames=list(NULL, c(var.names, "delta")))
+	LT = matrix(nrow=n, ncol=length(var.names)+3, dimnames=list(NULL, c("W1", "W2", var.names, "delta")))
 	Leff = 0.2
 	
 	############
 	## TIME 1 ##
 	############
 	atrisk = rep(TRUE,n)
+	LT[atrisk,"W1"] = rbinom(n, 1, p=.7)
+	LT[atrisk,"W2"] = rnorm(n)
 	LT[atrisk,"L.1"] = rnorm(n)
 	center = rep(mean(LT[atrisk,"L.1"]),n)
 	LT[atrisk,"A.1"] = rbinom(n, 1, prob=p)
@@ -95,7 +97,8 @@ generateData = function(n, lambda, time, p=0.5, alpha, txEffect="accel", c=0, cr
 #			LT[atrisk, paste("A.",i, sep="")] = ifelse(i<25, 0, 1)
 			
 			## HAZARD ##
-			lambda.tx = txLambda(lambda[i:length(lambda)], time[i:length(time)], alpha, type=txEffect)
+			mitigation = 0.75
+			lambda.tx = txLambda(lambda[i:length(lambda)], time[i:length(time)], alpha*mitigation, type=txEffect)
 			crossed = atrisk & LT[, paste("A.",i-1, sep="")] == 0 & LT[, paste("A.",i, sep="")] == 1
 			if(sum(crossed)>0) {
 				lambdaOBS[crossed,i:max(time)] = t(matrix(lambda.tx, nrow=length(lambda.tx), ncol=sum(crossed)))			
@@ -119,7 +122,7 @@ generateData = function(n, lambda, time, p=0.5, alpha, txEffect="accel", c=0, cr
 
 	## TRANSPOSE ##
 	if(long) {
-		data = reshape(data, varying=c(1:(ncol(data)-2)), direction="long")
+		data = reshape(data, varying=c(3:(ncol(data)-2)), direction="long")
 		data = subset(data, !(is.na(L) & is.na(A) & is.na(C) & is.na(Y)))
 		data = data[order(data$id, data$time),]
 		rownames(data) = NULL

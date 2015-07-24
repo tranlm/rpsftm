@@ -529,6 +529,50 @@ plot13 = function(fit1, fit2) {
 }
 
 
+plot13b = function(fit1, fit2, fit3) {
+	
+	plot(NULL, xlim=c(0,100), ylim=c(0,1), xlab="Time", ylab="Survival", main="One-way crossover (Control-->Treatment)", yaxt="n")
+	rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col="gray90")
+	abline(v=seq(0,100,20), col="white", lwd=1.5)
+	abline(v=seq(0,100,10), col="white", lwd=.75)
+	abline(h=seq(0,1,.20), col="white", lwd=1.5)
+	abline(h=seq(0,1,.10), col="white", lwd=.75)
+	axis(1, seq(0,100,20), labels=TRUE, las=1)
+	axis(1, seq(0,100,10), labels=FALSE, las=1, tcl=-.25)
+	axis(2, seq(0,1,.2), labels=TRUE, las=1)
+	axis(2, seq(0,1,.1), labels=FALSE, las=1, tcl=-.25)
+	abline(h=.5, lwd=1.5)
+	lines(fit1, col=c(2), lwd=2, mark.time=FALSE, conf.int=FALSE)
+	lines(fit2, col=c(0,4), lwd=2, lty=c(0,1))
+	lines(fit3, col=c(2), lwd=2, lty=c(2), mark.time=FALSE, conf.int=FALSE)
+	legend(45,1, c("Active Treatment", "Control (no crossover)", "Control (crossovers)"), col=c(4,2,2), lty=c(1,1,2), lwd=2, bg="white", cex=.8)
+	
+}
+
+
+plot13c = function(fit1, fit2=NULL, both=TRUE) {
+	
+	plot(NULL, xlim=c(0,100), ylim=c(0,1), xlab="Time", ylab="Survival", main="No crossovers", yaxt="n")
+	rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col="gray90")
+	abline(v=seq(0,100,20), col="white", lwd=1.5)
+	abline(v=seq(0,100,10), col="white", lwd=.75)
+	abline(h=seq(0,1,.20), col="white", lwd=1.5)
+	abline(h=seq(0,1,.10), col="white", lwd=.75)
+	axis(1, seq(0,100,20), labels=TRUE, las=1)
+	axis(1, seq(0,100,10), labels=FALSE, las=1, tcl=-.25)
+	axis(2, seq(0,1,.2), labels=TRUE, las=1)
+	axis(2, seq(0,1,.1), labels=FALSE, las=1, tcl=-.25)
+	abline(h=.5, lwd=1.5)
+	if(both) {
+		lines(fit1, col=c(2), lwd=2, mark.time=FALSE, conf.int=FALSE)
+		lines(fit2, col=c(0,4), lwd=2, lty=c(0,1))
+		legend(45,1, c("Active Treatment", "Control"), col=c(4,2), lty=c(1,1), lwd=2, bg="white", cex=.8)
+	} else {
+		lines(fit1, col=c(4), lwd=2, mark.time=FALSE, conf.int=FALSE)
+		legend(35,1, c("Counterfactual survival off TX"), col=c(4), lty=c(1), lwd=2, bg="white", cex=.8)		
+	}
+	
+}
 
 plot14 = function(fit1, fit2) {
 	
@@ -2047,3 +2091,176 @@ table_t = function(n=1000, nsim=500, eventsDesired=400, alpha=0.2, crossover=.1,
 }
 
 
+table4 = function(n=1000, eventsDesired=400, nsim=500, alpha=0.2, crossover = 0.1, dist="Exp") {
+	
+	superman = makeCluster(ncores, type=cluster)
+	registerDoSNOW(superman)
+	cat("Cluster summary\n", getDoParRegistered(), "\n", getDoParName(), "\n", getDoParWorkers(), "\n", getDoParVersion(), "\n") 
+	clusterSetupRNG(superman, sed=rep(6,6))
+	results = foreach(sim=1:nsim, .packages=c("rpsftm", "survival", "magrittr", "reshape")) %dopar% {
+		
+		if(dist=="Exp") {
+			O = generateData(n=n, lambda=log(2)/10, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		} else if(dist=="Wei") {
+			shape = 0.7
+			O = generateData(n=n, lambda=seq(1,120)^(shape-1)*(shape/(10/log(2))^shape), time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data	
+		} else if(dist=="NP") {
+			O = generateData(n=n, lambda=hodgkins$mx, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		} else if(dist=="NPUS") {
+			O = generateData(n=n, lambda=US.mx, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		}
+		O$Y[is.na(O$Y)] = 0
+		O %<>% subset(time==1, select=c("id", "A")) %>% rename(c(A="R")) %>% merge(O, by="id")
+		dates = data.frame(dateStart=rep(seq(from=as.Date("2011-01-01"), to=as.Date("2011-01-01")+n/10*30.5, by="month"), 10))
+		dates$id = seq.int(1:nrow(dates))
+		O = merge(O, dates, by="id", all.x=TRUE)
+		## SUBSET OUT ANALYSIS DATA ##
+		O$dateEnd = O$dateStart + (365.25/12)*O$T
+		O$date = O$dateStart + (365.25/12)*(O$time-1)
+		dateAnalyzed = with(subset(O, time==1), getAnalysisDate(dateEnd, delta, eventsDesired))
+		analysisData = subset(O, date < dateAnalyzed)
+		analysisData$t0 = analysisData$time - 1
+		## UPDATE CENSORING ##
+		analysisData$eofu = analysisData$dateEnd>=dateAnalyzed
+		analysisData$delta = ifelse(analysisData$eofu, 0, analysisData$delta)
+		analysisData$Y = ifelse(analysisData$eofu, 0, analysisData$Y)
+		analysisData$T = ifelse(analysisData$eofu, ceiling(as.numeric(dateAnalyzed-analysisData$dateStart)/(365.25/12)), analysisData$T)
+		analysisData$C = ifelse(analysisData$delta==1, ceiling(as.numeric(dateAnalyzed-analysisData$dateStart)/(365.25/12)), analysisData$T)
+		## g-FIT ##
+		analysisData$prevA[2:nrow(analysisData)] = analysisData$A[1:(nrow(analysisData)-1)]
+		analysisData$prevA[analysisData$time==1] = 0
+		cxData = subset(analysisData, R==0 & prevA==0 & time>1)
+		gAWFit = glm(A ~ L, data=cxData, family="binomial")
+		gAFit = glm(A ~ 1, data=cxData, family="binomial")
+		cxData$probA_1 = gAWFit$fitted.values
+		cxData$probA_1num = gAFit$fitted.values
+		analysisData = merge(analysisData, cxData[,c("id","time", "probA_1", "probA_1num")], by=c("id", "time"), all.x=TRUE)
+		analysisData$probA_1[analysisData$R==1 | analysisData$R==0 & analysisData$time==1] = analysisData$probA_1num[analysisData$R==1 | analysisData$R==0 & analysisData$time==1] = mean(subset(analysisData, time==1)$R)
+		analysisData$probA_1[analysisData$prevA==1] = analysisData$probA_1num[analysisData$prevA==1] = 1
+		analysisData$probA = ifelse(analysisData$A==1, analysisData$probA_1, 1-analysisData$probA_1)
+		analysisData$probAnum = ifelse(analysisData$A==1, analysisData$probA_1num, 1-analysisData$probA_1num)
+		analysisData$probR = ifelse(analysisData$A==1, mean(subset(analysisData, time==1)$R), 1-mean(subset(analysisData, time==1)$R))
+		analysisData$cumProbA = unlist(with(analysisData, tapply(probA, id, cumprod)))
+		analysisData$cumProbAnum = unlist(with(analysisData, tapply(probAnum, id, cumprod)))
+		## IPCW WEIGHTS ##
+		analysisData$unstbWts_1 = (analysisData$R==analysisData$A)/analysisData$cumProbA
+		analysisData$stbWts_1 = (analysisData$R==analysisData$A)*analysisData$cumProbAnum/analysisData$cumProbA	
+		## IPTW WEIGHTS ##
+		analysisData$unstbWts_2 = 1/analysisData$cumProbA
+		analysisData$stbWts_2 = analysisData$cumProbAnum/analysisData$cumProbA
+		## ESTIMATES ##
+		fit1 = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=unstbWts_1, subset=(unstbWts_1>0))
+		fit1b = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=stbWts_1, subset=(unstbWts_1>0))
+		fit2 = coxph(Surv(t0, time, Y) ~ R + I(A!=R) + cluster(id), data=analysisData, weights=unstbWts_2)
+		fit2b = coxph(Surv(t0, time, Y) ~ R + I(A!=R) + cluster(id), data=analysisData, weights=stbWts_2)
+		
+		out = c(summary(fit1)$coef[,c(1,3,4)], summary(fit1b)$coef[,c(1,3,4)], summary(fit2)$coef[1,c(1,3,4)], summary(fit2)$coef[2,c(1,3,4)], summary(fit2b)$coef[1,c(1,3,4)], summary(fit2b)$coef[2,c(1,3,4)])
+		names(out) = c("ipcw.Runstb.coef", "ipcw.Runstb.NaiveSE", "ipcw.Runstb.RobustSE", "ipcw.Rstb.coef", "ipcw.Rstb.NaiveSE", "ipcw.Rstb.RobustSE", "iptw.Runstb.coef", "iptw.Runstb.NaiveSE", "iptw.Runstb.RobustSE", "iptw.ARunstb.coef", "iptw.ARunstb.NaiveSE", "iptw.ARunstb.RobustSE", "iptw.Rstb.coef", "iptw.Rstb.NaiveSE", "iptw.Rstb.RobustSE", "iptw.ARstb.coef", "iptw.ARstb.NaiveSE", "iptw.ARstb.RobustSE")
+		
+		return(out)
+		
+	}
+	stopCluster(superman)
+	save(results, file=paste("./data/table8-", dist, crossover, ".RData", sep=""))
+	#load(file=paste("./data/table8-", dist, crossover, ".RData", sep=""))
+	
+	load(paste("./data/coxBeta", dist, "0.2.RData", sep=""))
+	cat("True beta:", beta, "\n")
+	hr = do.call("rbind", results)
+	
+	## STABLE WEIGHTS ##
+	printEst(hr, "ipcw.Rstb.coef", "ipcw.Rstb.RobustSE", beta)
+	printEst(hr, "iptw.Rstb.coef", "iptw.Rstb.RobustSE", beta)
+	printEst(hr, "iptw.ARstb.coef", "iptw.ARstb.RobustSE", beta)
+	
+	lcl = hr[,"iptw.ARstb.coef"] - qnorm(.975)*hr[,"iptw.ARstb.RobustSE"]
+	ucl = hr[,"iptw.ARstb.coef"] + qnorm(.975)*hr[,"iptw.ARstb.RobustSE"]
+	mean(ifelse(lcl<= .75*beta & .75*beta <= ucl, 1, 0))
+	
+}
+
+
+table5 = function(n=1000, eventsDesired=400, nsim=200, alpha=0.2, crossover = 0.1, dist="Exp") {
+	
+	superman = makeCluster(ncores, type=cluster)
+	registerDoSNOW(superman)
+	cat("Cluster summary\n", getDoParRegistered(), "\n", getDoParName(), "\n", getDoParWorkers(), "\n", getDoParVersion(), "\n") 
+	clusterSetupRNG(superman, sed=rep(6,6))
+	results = foreach(sim=1:nsim, .packages=c("rpsftm", "survival", "magrittr", "reshape")) %dopar% {
+		
+		if(dist=="Exp") {
+			O = generateData(n, lambda=log(2)/10, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		} else if(dist=="Wei") {
+			shape = 0.7
+			O = generateData(n, lambda=seq(1,120)^(shape-1)*(shape/(10/log(2))^shape), time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data	
+		} else if(dist=="NP") {
+			O = generateData(n, lambda=hodgkins$mx, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		} else if(dist=="NPUS") {
+			O = generateData(n, lambda=US.mx, time=120, p=0.5, alpha=alpha, crossover=crossover, long=TRUE)$data
+		}
+		O$Y[is.na(O$Y)] = 0
+		O %<>% subset(time==1, select=c("id", "A")) %>% rename(c(A="R")) %>% merge(O, by="id")
+		dates = data.frame(dateStart=rep(seq(from=as.Date("2011-01-01"), to=as.Date("2011-01-01")+n/10*30.5, by="month"), 10))
+		dates$id = seq.int(1:nrow(dates))
+		O = merge(O, dates, by="id", all.x=TRUE)
+		## SUBSET OUT ANALYSIS DATA ##
+		O$dateEnd = O$dateStart + (365.25/12)*O$T
+		O$date = O$dateStart + (365.25/12)*(O$time-1)
+		dateAnalyzed = with(subset(O, time==1), getAnalysisDate(dateEnd, delta, eventsDesired))
+		analysisData = subset(O, date < dateAnalyzed)
+		analysisData$t0 = analysisData$time - 1
+		## UPDATE CENSORING ##
+		analysisData$eofu = analysisData$dateEnd>=dateAnalyzed
+		analysisData$delta = ifelse(analysisData$eofu, 0, analysisData$delta)
+		analysisData$Y = ifelse(analysisData$eofu, 0, analysisData$Y)
+		analysisData$T = ifelse(analysisData$eofu, ceiling(as.numeric(dateAnalyzed-analysisData$dateStart)/(365.25/12)), analysisData$T)
+		analysisData$C = ifelse(analysisData$delta==1, ceiling(as.numeric(dateAnalyzed-analysisData$dateStart)/(365.25/12)), analysisData$T)
+		## g-FIT ##
+		analysisData$prevA[2:nrow(analysisData)] = analysisData$A[1:(nrow(analysisData)-1)]
+		analysisData$prevA[analysisData$time==1] = 0
+		cxData = subset(analysisData, R==0 & prevA==0 & time>1)
+		gAWFit = glm(A ~ W1 + W2 + L, data=cxData, family="binomial")
+		gAFit_old = glm(A ~ 1, data=cxData, family="binomial")
+		gAFit = glm(A ~ W1 + W2, data=cxData, family="binomial")
+		cxData$probA_1den = gAWFit$fitted.values
+		cxData$probA_1num = gAFit$fitted.values
+		cxData$probA_1num_old = gAFit_old$fitted.values
+		analysisData = merge(analysisData, cxData[,c("id","time", "probA_1den", "probA_1num", "probA_1num_old")], by=c("id", "time"), all.x=TRUE)
+		analysisData$probA_1den[analysisData$R==1 | analysisData$R==0 & analysisData$time==1] = analysisData$probA_1num[analysisData$R==1 | analysisData$R==0 & analysisData$time==1] = analysisData$probA_1num_old[analysisData$R==1 | analysisData$R==0 & analysisData$time==1] = mean(subset(analysisData, time==1)$R)
+		analysisData$probA_1den[analysisData$prevA==1] = analysisData$probA_1num[analysisData$prevA==1] = analysisData$probA_1num_old[analysisData$prevA==1] = 1
+		analysisData$probAden = ifelse(analysisData$A==1, analysisData$probA_1den, 1-analysisData$probA_1den)
+		analysisData$probAnum = ifelse(analysisData$A==1, analysisData$probA_1num, 1-analysisData$probA_1num)
+		analysisData$probAnum_old = ifelse(analysisData$A==1, analysisData$probA_1num_old, 1-analysisData$probA_1num_old)
+		analysisData$probR = ifelse(analysisData$A==1, mean(subset(analysisData, time==1)$R), 1-mean(subset(analysisData, time==1)$R))
+		analysisData$cumProbAden = unlist(with(analysisData, tapply(probAden, id, cumprod)))
+		analysisData$cumProbAnum = unlist(with(analysisData, tapply(probAnum, id, cumprod)))
+		analysisData$cumProbAnum_old = unlist(with(analysisData, tapply(probAnum_old, id, cumprod)))
+		## IPCW WEIGHTS ##
+		analysisData$unstbWts_1 = (analysisData$R==analysisData$A)/analysisData$cumProbAden
+		analysisData$stbWts_1_old1 = (analysisData$R==analysisData$A)*analysisData$probR/analysisData$cumProbAden
+		analysisData$stbWts_1_old2 = (analysisData$R==analysisData$A)*analysisData$cumProbAnum_old/analysisData$cumProbAden
+		analysisData$stbWts_1 = (analysisData$R==analysisData$A)*analysisData$cumProbAnum/analysisData$cumProbAden
+		## ESTIMATES ##
+		fit1 = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=unstbWts_1, subset=(unstbWts_1>0))
+		fit2 = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=stbWts_1_old1, subset=(unstbWts_1>0))
+		fit3 = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=stbWts_1_old2, subset=(unstbWts_1>0))
+		fit4 = coxph(Surv(t0, time, Y) ~ R + cluster(id), data=analysisData, weights=stbWts_1, subset=(unstbWts_1>0))
+		
+		out = c(summary(fit1)$coef[,c(1,3,4)], summary(fit2)$coef[,c(1,3,4)], summary(fit3)$coef[,c(1,3,4)], summary(fit4)$coef[,c(1,3,4)])
+		names(out) = c("ipcw.Runstb.coef", "ipcw.Runstb.NaiveSE", "ipcw.Runstb.RobustSE", "ipcw.Rstb.coef", "ipcw.Rstb.NaiveSE", "ipcw.Rstb.RobustSE", "ipcw.Rstb2.coef", "ipcw.Rstb2.NaiveSE", "ipcw.Rstb2.RobustSE", "ipcw.Rstb3.coef", "ipcw.Rstb3.NaiveSE", "ipcw.Rstb3.RobustSE")
+		
+		return(out)
+		
+	}
+	stopCluster(superman)
+	
+	save(results, file="table5-comp.RData")
+	hrs = do.call("rbind", results)
+	
+	plot(density(hrs[,1]), lwd=2, ylim=c(0,2.5))
+	abline(v=-.2, col=2, lwd=2)
+	lines(density(hrs[,4]), lwd=2, col=3)
+	lines(density(hrs[,7]), lwd=2, col=4)
+	lines(density(hrs[,10]), lwd=2, col=5)
+	
+}
