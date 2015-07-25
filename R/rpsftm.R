@@ -96,7 +96,7 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 		coxScore = resid(coxFit, type="score")
 		controlScore = ifelse(data[,"R"]==0, coxScore, NA)
 
-		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.pvalue = summary(coxFit)$coef[,"Pr(>|z|)"])
+		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.z = summary(coxFit)$coef[,"z"]), cox.HR.pvalue = summary(coxFit)$coef[,"Pr(>|z|)"])
 		output = list(statistics=statistics, U_psi=U_psi, C_psi=C_psi, X_psi=X_psi, Y_psi=Y_psi)
 		return(output)
 	})
