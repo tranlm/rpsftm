@@ -4,29 +4,32 @@
 \alias{rpsftm}
 \title{Rank Preserving Structural Failure Time Model}
 \usage{
-rpsftm(T, A, R, C, Y, id, strata = NULL, psi = NULL, weights = NULL)
+rpsftm(T, A, R, C, Y, id, strata = NULL, psi = seq(-3, 3, 0.001),
+  weights = NULL)
 }
 \arguments{
-\item{T}{Interval specific contribution time. Specifically, it is the amount of time contributed by the patient for the observation of A recorded.}
+\item{T}{Total follow-up time contributed by each patient. This is typically the min(T,C), where T is the event time and C is the censoring time.}
 
-\item{A}{Indicator of treatment observed, allowed to vary over time. For subjects who never cross over in treatment, this value should be the same as \code{R}.}
+\item{A}{Total time each subject spends on active treatment. For subjects who are never exposed to active treatment (i.e. they are randomized to and remain in the placebo group), this value will be 0. For subjects remaining in the active treatment group during their entire follow-up, this will be equal to \code{T}.}
 
-\item{R}{Indicator of treatment group initially randomized to. This is a binary variable that takes on value 1 if the subject was randomized to treatment and 0 if the subject was randomized to the control group. This can be either the same length as the length of the \code{T} and \code{A} vectors (and should not vary within each \code{id}) or the same length as there are unique \code{id} (and have the \code{id} as the names of each element in the vector).}
+\item{R}{Indicator of treatment group initially randomized to. This is a binary variable that takes on value 1 if the subject was randomized to treatment and 0 if the subject was randomized to the control group.}
 
-\item{C}{The observed censoring time. The model assumes that if a subject experiences a failure prior to observing the censoring time, then the censoring time would be the time from randomization until the end of study. It also assumes that censoring is independent of treatment assignment \code{R}. This can be either the same length as the length of the \code{T} and \code{A} vectors (and should not vary within each \code{id}) or the same length as there are unique \code{id} (and have the \code{id} as the names of each element in the vector).}
+\item{C}{The observed censoring time. The model assumes that if a subject experiences a failure prior to observing the censoring time, then the censoring time would be the time from randomization until the end of study. It also assumes that censoring is independent of treatment assignment \code{R}. Typically, this is the indicator that min(T,C) is equal to T, i.e. that a failure was observed before a censoring event.}
 
-\item{Y}{Indicator of observed failure event. This is a binary variable that takes on value 1 if the event is observed and 0 otherwise. This can be either the same length as the length of the \code{T} and \code{A} vectors or the same length as there are unique \code{id}. If it is the same length as the \code{T} and \code{A} vectors, the function will check to see whether \code{Y} varies with \code{id}, i.e. whether there is more than 1 unique value of Y for each subject across all subjects. If so, then it is assumed that \code{Y} is a time-varying indicator of failure. An overall indicator will be computed from these time-varying values (with missing values removed beforehand). If \code{Y} is the same length as there are unique \code{id} values, then each element will require an \code{id} value name.}
+\item{Y}{Indicator of observed failure event. This is a binary variable that takes on value 1 if the event is observed and 0 otherwise. N}
 
-\item{id}{Cluster identification variable. This is used to calculating the total amount of follow-up time per person. It should be of the same length as the \code{T} and \code{A} vectors.}
+\item{id}{Cluster identification variable. This is used to label the counterfactual survival times.}
 
-\item{strata}{Strata that each id is assigned to. This should be provided as a factor with the same length as the length of the \code{T} and \code{A} vectors and should not vary within each \code{id}.}
+\item{strata}{Strata that each id is assigned to.}
 
 \item{psi}{Grid of potential parameter values to estimate over. By default, the grid is set to \code{seq(-3,3,.001)}.}
 
-\item{weight}{Observational weights. This can be either the same length as the length of the \code{T} and \code{A} vectors or the same length as there are unique \code{id}. If \code{Y} is the same length as there are unique \code{id} values, then each element will require an \code{id} value name. If inserting data in longitudinal form, weights should correspond to weight for each observation (cf. cumulative weights over all time points). The cumulative product will then be taken over all time points.}
+\item{weight}{Observational weights.}
 }
 \value{
-From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The data returned is ordered by \code{id}, with numeric IDs converted to character form. For the statistics, the following values are reported
+From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The summarized data returned is ordered by \code{id}, with numeric IDs converted to character form.
+
+For the statistics, the following values are reported
 \itemize{
 	\item {log-rank statistic from the Kaplan Meier curve}
 	\item {log-rank p-value from the Kaplan Meier curve}
@@ -37,6 +40,23 @@ From the potential values of psi, the function will return an object of class \c
 	\item {Cox likelihood ratio test statistic from the proportional hazards model}
 	\item {Cox likelihood ratio test p-value from the proportional hazards model}
 	\item {Cox hazard ratio from the proportional hazards model}
+	\item {Cox hazard ratio z-statistic from the proportional hazards model}
+	\item {Cox hazard ratio p-value from the proportional hazards model}
+}
+
+For the counterfactual distribution off treatment
+\itemize{
+	\item {log-rank statistic from the Kaplan Meier curve}
+	\item {log-rank p-value from the Kaplan Meier curve}
+	\item {Wilcoxon statistic from the Kaplan Meier curve}
+	\item {Wilcoxon p-value from the Kaplan Meier curve}
+	\item {Cox Wald statistic from the proportional hazards model}
+	\item {Cox Wald p-value from the proportional hazards model}
+	\item {Cox likelihood ratio test statistic from the proportional hazards model}
+	\item {Cox likelihood ratio test p-value from the proportional hazards model}
+	\item {Cox hazard ratio from the proportional hazards model}
+	\item {Cox hazard ratio z-statistic from the proportional hazards model}
+	\item {Cox hazard ratio p-value from the proportional hazards model}
 }
 }
 \description{
@@ -44,6 +64,30 @@ From the potential values of psi, the function will return an object of class \c
 }
 \details{
 Data should be provided to the function in a longitudinal format, with the indicator of final outcome \code{Y} being constant across all observations from the same individual. \code{T} is the interval specific time contributed while on the specific treatment \code{TX}.
+}
+\examples{
+# Simulated data under no crossover or censoring
+set.seed(1)
+n = 100
+R = rbinom(n, 1, 0.5)
+T0 = rexp(n, .05)
+T = ifelse(R==0, T0, exp(0.2)*T0)
+A = ifelse(R==0, 0, T)
+rpsftmFit1 = rpsftm(T, A, R, C=rep(Inf, n), Y=rep(1,n), id=seq(1,n), psi=seq(-3,3,.01))
+rpsftmFit1
+plot(rpsftmFit1)
+
+# Simulated data under placebo crossover halfway through follow-up (no censoring)
+set.seed(1)
+n = 100
+R = rbinom(n, 1, 0.5)
+crossover = ifelse(R==1, 0, rbinom(n, 1, 0.5))
+T0 = rexp(n, .05)
+T = ifelse(R==0, ifelse(crossover==1, T0/2+exp(0.2)*(T0/2), T0), exp(0.2)*T0)
+A = ifelse(R==0, ifelse(crossover==1, exp(0.2)*(T0/2), 0), T)
+rpsftmFit2 = rpsftm(T, A, R, C=rep(Inf, n), Y=rep(1,n), id=seq(1,n), psi=seq(-3,3,.01))
+rpsftmFit2
+plot(rpsftmFit2)
 }
 \author{
 Linh Tran

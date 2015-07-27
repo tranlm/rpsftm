@@ -12,16 +12,18 @@
 #' 
 #' Data should be provided to the function in a longitudinal format, with the indicator of final outcome \code{Y} being constant across all observations from the same individual. \code{T} is the interval specific time contributed while on the specific treatment \code{TX}. 
 #' 
-#' @param T Interval specific contribution time. Specifically, it is the amount of time contributed by the patient for the observation of A recorded. 
-#' @param A Indicator of treatment observed, allowed to vary over time. For subjects who never cross over in treatment, this value should be the same as \code{R}.
-#' @param R Indicator of treatment group initially randomized to. This is a binary variable that takes on value 1 if the subject was randomized to treatment and 0 if the subject was randomized to the control group. This can be either the same length as the length of the \code{T} and \code{A} vectors (and should not vary within each \code{id}) or the same length as there are unique \code{id} (and have the \code{id} as the names of each element in the vector).
-#' @param C The observed censoring time. The model assumes that if a subject experiences a failure prior to observing the censoring time, then the censoring time would be the time from randomization until the end of study. It also assumes that censoring is independent of treatment assignment \code{R}. This can be either the same length as the length of the \code{T} and \code{A} vectors (and should not vary within each \code{id}) or the same length as there are unique \code{id} (and have the \code{id} as the names of each element in the vector).
-#' @param Y Indicator of observed failure event. This is a binary variable that takes on value 1 if the event is observed and 0 otherwise. This can be either the same length as the length of the \code{T} and \code{A} vectors or the same length as there are unique \code{id}. If it is the same length as the \code{T} and \code{A} vectors, the function will check to see whether \code{Y} varies with \code{id}, i.e. whether there is more than 1 unique value of Y for each subject across all subjects. If so, then it is assumed that \code{Y} is a time-varying indicator of failure. An overall indicator will be computed from these time-varying values (with missing values removed beforehand). If \code{Y} is the same length as there are unique \code{id} values, then each element will require an \code{id} value name. 
-#' @param id Cluster identification variable. This is used to calculating the total amount of follow-up time per person. It should be of the same length as the \code{T} and \code{A} vectors. 
-#' @param strata Strata that each id is assigned to. This should be provided as a factor with the same length as the length of the \code{T} and \code{A} vectors and should not vary within each \code{id}.
+#' @param T Total follow-up time contributed by each patient. This is typically the min(T,C), where T is the event time and C is the censoring time. 
+#' @param A Total time each subject spends on active treatment. For subjects who are never exposed to active treatment (i.e. they are randomized to and remain in the placebo group), this value will be 0. For subjects remaining in the active treatment group during their entire follow-up, this will be equal to \code{T}.
+#' @param R Indicator of treatment group initially randomized to. This is a binary variable that takes on value 1 if the subject was randomized to treatment and 0 if the subject was randomized to the control group.
+#' @param C The observed censoring time. The model assumes that if a subject experiences a failure prior to observing the censoring time, then the censoring time would be the time from randomization until the end of study. It also assumes that censoring is independent of treatment assignment \code{R}. Typically, this is the indicator that min(T,C) is equal to T, i.e. that a failure was observed before a censoring event.
+#' @param Y Indicator of observed failure event. This is a binary variable that takes on value 1 if the event is observed and 0 otherwise. N 
+#' @param id Cluster identification variable. This is used to label the counterfactual survival times.
+#' @param strata Strata that each id is assigned to. 
 #' @param psi Grid of potential parameter values to estimate over. By default, the grid is set to \code{seq(-3,3,.001)}.
-#' @param weight Observational weights. This can be either the same length as the length of the \code{T} and \code{A} vectors or the same length as there are unique \code{id}. If \code{Y} is the same length as there are unique \code{id} values, then each element will require an \code{id} value name. If inserting data in longitudinal form, weights should correspond to weight for each observation (cf. cumulative weights over all time points). The cumulative product will then be taken over all time points.
-#' @return From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The data returned is ordered by \code{id}, with numeric IDs converted to character form. For the statistics, the following values are reported
+#' @param weight Observational weights.
+#' @return From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The summarized data returned is ordered by \code{id}, with numeric IDs converted to character form. 
+#' 
+#' For the statistics, the following values are reported
 #' \itemize{
 #' 	\item {log-rank statistic from the Kaplan Meier curve}
 #' 	\item {log-rank p-value from the Kaplan Meier curve}
@@ -32,21 +34,58 @@
 #' 	\item {Cox likelihood ratio test statistic from the proportional hazards model}
 #' 	\item {Cox likelihood ratio test p-value from the proportional hazards model}
 #' 	\item {Cox hazard ratio from the proportional hazards model}
+#' 	\item {Cox hazard ratio z-statistic from the proportional hazards model}
+#' 	\item {Cox hazard ratio p-value from the proportional hazards model}
 #' }
 #' 
+#' For the counterfactual distribution off treatment
+#' \itemize{
+#' 	\item {log-rank statistic from the Kaplan Meier curve}
+#' 	\item {log-rank p-value from the Kaplan Meier curve}
+#' 	\item {Wilcoxon statistic from the Kaplan Meier curve}
+#' 	\item {Wilcoxon p-value from the Kaplan Meier curve}
+#' 	\item {Cox Wald statistic from the proportional hazards model}
+#' 	\item {Cox Wald p-value from the proportional hazards model}
+#' 	\item {Cox likelihood ratio test statistic from the proportional hazards model}
+#' 	\item {Cox likelihood ratio test p-value from the proportional hazards model}
+#' 	\item {Cox hazard ratio from the proportional hazards model}
+#' 	\item {Cox hazard ratio z-statistic from the proportional hazards model}
+#' 	\item {Cox hazard ratio p-value from the proportional hazards model}
+#' }
+#' 
+#' @examples
+#' # Simulated data under no crossover or censoring
+#' set.seed(1)
+#' n = 100
+#' R = rbinom(n, 1, 0.5)
+#' T0 = rexp(n, .05)
+#' T = ifelse(R==0, T0, exp(0.2)*T0)
+#' A = ifelse(R==0, 0, T)
+#' rpsftmFit1 = rpsftm(T, A, R, C=rep(Inf, n), Y=rep(1,n), id=seq(1,n), psi=seq(-3,3,.01))
+#' rpsftmFit1
+#' plot(rpsftmFit1)
+#'
+#' # Simulated data under placebo crossover halfway through follow-up (no censoring)
+#' set.seed(1)
+#' n = 100
+#' R = rbinom(n, 1, 0.5)
+#' crossover = ifelse(R==1, 0, rbinom(n, 1, 0.5))
+#' T0 = rexp(n, .05)
+#' T = ifelse(R==0, ifelse(crossover==1, T0/2+exp(0.2)*(T0/2), T0), exp(0.2)*T0)
+#' A = ifelse(R==0, ifelse(crossover==1, exp(0.2)*(T0/2), 0), T)
+#' rpsftmFit2 = rpsftm(T, A, R, C=rep(Inf, n), Y=rep(1,n), id=seq(1,n), psi=seq(-3,3,.01))
+#' rpsftmFit2
+#' plot(rpsftmFit2)
+#'
 #' @author Linh Tran
 #' @export
-rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
+rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=seq(-3,3,.001), weights=NULL) {
 	
 	## INITIALIZES ##
-	if(is.null(strata)) strata = factor(rep(1,length(T)))
-	if(is.null(psi)) {
-		psi = seq(-3,3,.001)	
-	} else {
-		psi = psi[order(psi)]
-	}
+	psi = psi[order(psi)]
 	
 	## CHECKS ##
+	if(length(unique(id)) != length(id)) stop("IDs supplied need to be unique.")
 	if(length(T)!=length(A)) stop("Length of T and A vectors need to be identical.")
 	if(length(T)!=length(id)) stop("Length of id and A/T vectors need to be identical.")
 	R = checkR(R, T, id)
@@ -55,20 +94,15 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 	strata = checkStrata(strata, T, id)
 	weights = checkWeights(weights, T, id)
 	
-	## TOTAL CONTRIBUTED TIMES ##
-	T_off = ifelse(A==0, T, 0)
-	T_on = ifelse(A==1, T, 0)
-	T_off.id = tapply(T_off, id, sum)
-	T_on.id = tapply(T_on, id, sum)
 	
 	## FINAL DATA ##
-	data = matrix(nrow=length(Y), ncol=7, dimnames=list(unique(id), c("R", "Y", "C", "strata", "T_off", "T_on", "weights")))
+	data = matrix(nrow=length(Y), ncol=7, dimnames=list(id, c("R", "Y", "C", "strata", "T_off", "T_on", "weights")))
 	data[names(Y),"Y"] = Y
 	data[names(C),"C"] = C
 	data[names(R),"R"] = R
-	data[names(strata),"strata"] = strata
-	data[names(T_off.id),"T_off"] = T_off.id
-	data[names(T_on.id),"T_on"] = T_on.id	
+	data[names(strata), "strata"] = strata
+	data[id,"T_off"] = T-A
+	data[id,"T_on"] = A	
 	data[names(weights),"weights"] = weights
 	
 	## ESTIMATES STATISTIC FROM PSI ##
@@ -96,7 +130,7 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 		coxScore = resid(coxFit, type="score")
 		controlScore = ifelse(data[,"R"]==0, coxScore, NA)
 
-		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.z = summary(coxFit)$coef[,"z"]), cox.HR.pvalue = summary(coxFit)$coef[,"Pr(>|z|)"])
+		statistics=c(psi=psi[i], km.chisq=kmFit$chisq, km.pvalue=1-pchisq(kmFit$chisq,1), wilcoxon.chisq=wilcoxonFit$chisq, wilcoxon.pvalue=1-pchisq(wilcoxonFit$chisq,1), cox.wald=coxFit$wald.test[[1]], cox.wald.pvalue=1-pchisq(coxFit$wald.test[[1]],1), cox.lrt=2*diff(coxFit$loglik), cox.lrt.pvalue=1-pchisq(2*diff(coxFit$loglik),1), cox.HR=coxFit$coefficients[[1]], cox.HR.z = summary(coxFit)$coef[,"z"], cox.HR.pvalue = summary(coxFit)$coef[,"Pr(>|z|)"])
 		output = list(statistics=statistics, U_psi=U_psi, C_psi=C_psi, X_psi=X_psi, Y_psi=Y_psi)
 		return(output)
 	})
@@ -143,4 +177,3 @@ rpsftm = function(T, A, R, C, Y, id, strata=NULL, psi=NULL, weights=NULL) {
 	return(out)
 	
 }
-

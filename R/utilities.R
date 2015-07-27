@@ -45,7 +45,7 @@ print.rpsftm = function(x, ...) {
 
 
 #' @export 
-plot.rpsftm = function(x, statistic="Log-rank", ...) {
+plot.rpsftm = function(fit, statistic="Log-rank", ...) {
 	if(!statistic %in% c("Log-rank", "Wilcoxon", "Cox-Wald", "Cox-HR")) stop("statistic needs to be one of the following: Log-rank, Wilcoxon, Cox-Wald, Cox-HR")
 	
 	psi = fit$statistics$psi
