@@ -9,21 +9,13 @@ rpsftm(T, A, R, C, Y, id, strata = NULL, psi = seq(-3, 3, 0.001),
 }
 \arguments{
 \item{T}{Total follow-up time contributed by each patient. This is typically the min(T,C), where T is the event time and C is the censoring time.}
-
 \item{A}{Total time each subject spends on active treatment. For subjects who are never exposed to active treatment (i.e. they are randomized to and remain in the placebo group), this value will be 0. For subjects remaining in the active treatment group during their entire follow-up, this will be equal to \code{T}.}
-
 \item{R}{Indicator of treatment group initially randomized to. This is a binary variable that takes on value 1 if the subject was randomized to treatment and 0 if the subject was randomized to the control group.}
-
 \item{C}{The observed censoring time. The model assumes that if a subject experiences a failure prior to observing the censoring time, then the censoring time would be the time from randomization until the end of study. It also assumes that censoring is independent of treatment assignment \code{R}. Typically, this is the indicator that min(T,C) is equal to T, i.e. that a failure was observed before a censoring event.}
-
 \item{Y}{Indicator of observed failure event. This is a binary variable that takes on value 1 if the event is observed and 0 otherwise. N}
-
 \item{id}{Cluster identification variable. This is used to label the counterfactual survival times.}
-
 \item{strata}{Strata that each id is assigned to.}
-
 \item{psi}{Grid of potential parameter values to estimate over. By default, the grid is set to \code{seq(-3,3,.001)}.}
-
 \item{weight}{Observational weights.}
 }
 \value{
@@ -44,20 +36,7 @@ For the statistics, the following values are reported
 	\item {Cox hazard ratio p-value from the proportional hazards model}
 }
 
-For the counterfactual distribution off treatment
-\itemize{
-	\item {log-rank statistic from the Kaplan Meier curve}
-	\item {log-rank p-value from the Kaplan Meier curve}
-	\item {Wilcoxon statistic from the Kaplan Meier curve}
-	\item {Wilcoxon p-value from the Kaplan Meier curve}
-	\item {Cox Wald statistic from the proportional hazards model}
-	\item {Cox Wald p-value from the proportional hazards model}
-	\item {Cox likelihood ratio test statistic from the proportional hazards model}
-	\item {Cox likelihood ratio test p-value from the proportional hazards model}
-	\item {Cox hazard ratio from the proportional hazards model}
-	\item {Cox hazard ratio z-statistic from the proportional hazards model}
-	\item {Cox hazard ratio p-value from the proportional hazards model}
-}
+For the counterfactual distribution off treatment, the counterfactual survival times and indicators of failure are calculated for each of the psi values provided to the function.
 }
 \description{
 \code{rpsftm} implements the rank preserving structural failure time model presented by Robins and Tsiatis (1991) and again by Korhonen et al (2012).

@@ -21,7 +21,9 @@
 #' @param strata Strata that each id is assigned to. 
 #' @param psi Grid of potential parameter values to estimate over. By default, the grid is set to \code{seq(-3,3,.001)}.
 #' @param weight Observational weights.
-#' @return From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The summarized data returned is ordered by \code{id}, with numeric IDs converted to character form. 
+#' 
+#' @return 
+#' From the potential values of psi, the function will return an object of class \code{rpfstm}, which includes (1) the statistics for the counterfactual distribution, (2) the empirical values for the counterfactual distribution off treatment, and (3) the summarized data for time spent both on and off treatment. The summarized data returned is ordered by \code{id}, with numeric IDs converted to character form. 
 #' 
 #' For the statistics, the following values are reported
 #' \itemize{
@@ -38,20 +40,7 @@
 #' 	\item {Cox hazard ratio p-value from the proportional hazards model}
 #' }
 #' 
-#' For the counterfactual distribution off treatment
-#' \itemize{
-#' 	\item {log-rank statistic from the Kaplan Meier curve}
-#' 	\item {log-rank p-value from the Kaplan Meier curve}
-#' 	\item {Wilcoxon statistic from the Kaplan Meier curve}
-#' 	\item {Wilcoxon p-value from the Kaplan Meier curve}
-#' 	\item {Cox Wald statistic from the proportional hazards model}
-#' 	\item {Cox Wald p-value from the proportional hazards model}
-#' 	\item {Cox likelihood ratio test statistic from the proportional hazards model}
-#' 	\item {Cox likelihood ratio test p-value from the proportional hazards model}
-#' 	\item {Cox hazard ratio from the proportional hazards model}
-#' 	\item {Cox hazard ratio z-statistic from the proportional hazards model}
-#' 	\item {Cox hazard ratio p-value from the proportional hazards model}
-#' }
+#' For the counterfactual distribution off treatment, the counterfactual survival times and indicators of failure are calculated for each of the psi values provided to the function.
 #' 
 #' @examples
 #' # Simulated data under no crossover or censoring
